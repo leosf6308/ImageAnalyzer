@@ -11,12 +11,12 @@ Pixel clustering compares each pixel with it's top and left regions (given by pi
 
 TODO:
 Find a way to identify object and rotation given a region (cluster).
-    IDEA 1:
+* IDEA 1
     Take region statistics by pixel disposition.
     Rotate objet so it gets to 0º rotation.
     Compare pixel count by bounding box area ratio.
     Use http://www.ijareeie.com/upload/june/48_2D%20GEOMETRIC.pdf idea (compare ratio to known ranges).
-    IDEA 2:
+* IDEA 2
     Take region statistics
     Check line distribution
     Take some statistics and compare to database.
