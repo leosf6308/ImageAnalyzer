@@ -2,7 +2,7 @@
 Image analyzing tool for rocket plume.
 It's on C++, don't blame me. For me, messing with C++ pointers is easier.
 
-Lets you apply filters to objects, given an input image. Needs leosf6308/libpng and leosf6308/libjpeg to get PNGs/JPEGs contents.
+Lets you apply filters to objects, given an input image. Needs @github/leosf6308/libpng and @github/leosf6308/libjpeg to get PNGs/JPEGs contents.
 Currently 4bit color quantization, border detection and pixel clustering are the available options.
 Color quantization seeks for the closest color based on pixel's color, using 3D euclidean distance.
 Border detection subtracts a pixel from all of it's 8 neighbours and returns an intensity. When color varies too much, intensity also varies with it.
