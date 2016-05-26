@@ -24,4 +24,5 @@ Find a way to identify object and rotation given a region (cluster).
   * Join pixels wich have similar angle in a line
   * Get line crossings and angle between them
   * Compare these crossings with known forms (keep a database)
+
 A better and faster clustering algorithm should be developed.
