@@ -8,7 +8,6 @@ Color quantization seeks for the closest color based on pixel's color, using 3D 
 Border detection subtracts a pixel from all of it's 8 neighbours and returns an intensity. When color varies too much, intensity also varies with it.
 Pixel clustering compares each pixel with it's top and left regions (given by pixel), and joins it to a region if depending on threshold.
 
-
 TODO:
 Find a way to identify object and rotation given a region (cluster).
 * IDEA 1
@@ -20,4 +19,9 @@ Find a way to identify object and rotation given a region (cluster).
   * Take region statistics
   * Check line distribution
   * Take some statistics and compare to database.
+* IDEA 3
+  * Get border angle
+  * Join pixels wich have similar angle in a line
+  * Get line crossings and angle between them
+  * Compare these crossings with known forms (keep a database)
 A better and faster clustering algorithm should be developed.
