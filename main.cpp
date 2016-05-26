@@ -9,6 +9,7 @@ LPIMGDATA loadFile(const char* szFileName);
 int saveImage(const char* szFileName, LPIMGDATA imgData);
 void quantizeColors16(LPIMGDATA imgData);
 void detectBorder(LPIMGDATA imgData);
+void sobelOperatorOrientation(LPIMGDATA imgData);
 void DKHFastScanning(LPIMGDATA imgData);
 
 int writeConsoleFmt(const char *format, ...){
@@ -83,6 +84,7 @@ char waitKeyPress(bool bMessage){
 
 int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow){
 	int option = 0;
+	char strOption[8];
 	LPIMGDATA imgData;
 	AllocConsole();
 	outConsole = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -118,9 +120,11 @@ int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPSTR lpCmd
 	}
 	
 	do{
-		writeConsole("\nAvailable operations:\n\t1. Save image.\n\t2. Quantize colors (16bits)\n\t3. Detect border\n\t4. Scan for clusters.\n\t5. Show histogram.\n\t0. Leave\nYour choice:");
-		option = (int)waitKeyPress(false)-0x30;
-		writeConsoleFmt("%d\n",option);
+		writeConsole("\nAvailable operations:\n\t1. Save image.\n\t2. Quantize colors (16bits)\n\t3. Detect border\n\t4. Scan for clusters.\n\t5. Show histogram.\n\t6. Get border direction.\n\t0. Leave\nYour choice:");
+		readConsoleString(strOption);
+		if(sscanf(strOption,"%d",&option) == EOF){
+			continue;
+		}
 		switch(option){
 			case 0:
 				break;
@@ -139,6 +143,9 @@ int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPSTR lpCmd
 				break;
 			case 5:
 				writeConsole("In development...");
+				break;
+			case 6:
+				sobelOperatorOrientation(imgData);
 				break;
 			default:
 				writeConsole("Unknown option...");

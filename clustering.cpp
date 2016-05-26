@@ -84,6 +84,66 @@ typedef struct _pixelCount{
 	int distance;
 }PIXCNT, *LPPIXCNT;
 
+/*
+C    = n!/(p!*(n-p)!)
+ n,p
+
+C         5!         5!
+ 5,3   -------- = -------- = 5!/3!*2! = (5*4)/2!
+       3!(5-3)!    3! 2!
+	   
+C     = (5*4*3*2*1)/(3*2*1)*(2*1)
+ 5,3
+ 
+C    = 3!/(4!*(n-p)!)
+ 3,4
+
+C      = 20!/(15!*(20-15)!) = (20*19*18*17*16)/(5*4*3*2*1) = 1860480/120 = 15504
+ 20,15
+Se n == p #DIV0
+	Ret nan("");
+Se n < p 
+	Ret -INFINITY
+Senão
+	r1 = n! (conceitualmente)
+	r2 = p! (conceitualmente)
+	r3 = (n-p)! (conceitualmente)
+	Se r1 > r2
+		Cortar. Mas como?
+		r1 = MultiplicaSequencial(r2+1 até r1)
+		r2 = 0
+		C = r1/r3!
+	Se r1 > r3
+
+*/
+
+double sequentialMultiply(int start, int end) {
+	double result;
+	if(start == end)
+		return (double)start;
+	if(start > end)
+		return (double)nan("");
+	result = (double)start++;
+	while(start <= end){
+		result *= start;
+		start++;
+	}
+	return result;
+}
+
+double calcCombinations(int n, int k){
+	if(n == k)
+		return (double)nan("");
+	else if(n < k)
+		return (double)INFINITY;
+	else{
+		double result;
+		result = sequentialMultiply(k+1, n);
+		result /= sequentialMultiply(1,n-k);
+		return result;
+	}
+}
+
 float getColorDistance(COLOR c1, COLOR c2){
 	int dr = c1.red-c2.red;
 	int dg = c1.green-c2.green;
@@ -337,9 +397,9 @@ void Cluster::mergeClosest(Cluster* head){
 int Cluster::detectShape(){
 	//Returns probable geometric shape (square, triangle, circle) of the object.
 	//http://homepages.inf.ed.ac.uk/rbf/CVonline/LOCAL_COPIES/MORSE/region-props-and-moments.pdf Section 9.8.2
-	
-	int i, j, S, lnStep, width, height, ptIdx;
-	double ux, uy, u20, u02, u11, C;
+	int i, j, S, lnStep, width, height, ptIdx, perimeter;
+	double ux, uy, u20, u02, u11, u30, u03, u12, u21, C, metric, cicularity;
+	double n20, n02, n11, n30, n03, n12, n21, I2, I3, Spwr;
 	Cluster** thisPx = ((Cluster**)clustImage->pixClus)+(top*clustImage->width+left);
 	POINT2D center;
 	
@@ -347,6 +407,7 @@ int Cluster::detectShape(){
 	height = bottom-top;
 	lnStep = clustImage->width-width;
 	uy = ux = 0.0;
+	perimeter = 0;
 	j = 0;
 	S = 0;
 	//j = y; x = i; S = cluster pixel count; f(x,y) returns 1 for pixels who belong to the cluster.
@@ -369,17 +430,56 @@ int Cluster::detectShape(){
 	center.x = (int)ux;
 	center.y = (int)uy;
 	thisPx = ((Cluster**)clustImage->pixClus)+(top*clustImage->width+left);
+	u20 = u02 = u11 = u30 = u03 = u12 = u21 = 0.0;
 	j = 0;
 	while(j < height){
 		i = 0;
 		while(i < width){
 			if(*thisPx == this){
-				int xvar, yvar;
+				int xvar, yvar, outerNeighbouhr;
+				Cluster** neighbouhr;
 				xvar = i - center.x;
 				yvar = j - center.y;
 				u20 += (xvar*xvar);
 				u02 += (yvar*yvar);
 				u11 += (xvar*yvar);
+				u30 += (xvar*xvar*xvar);
+				u03 += (yvar*yvar*yvar);
+				u12 += (xvar*yvar*yvar);
+				u21 += (xvar*xvar*yvar);
+				
+				outerNeighbouhr = 0;
+				if(j != 0){
+					neighbouhr = thisPx-(lnStep+1);
+					if(i == 0 || *neighbouhr++ != this) //Test top left
+						outerNeighbouhr++;
+					if(*neighbouhr++ != this) //Test top middle
+						outerNeighbouhr++;
+					if(i == width-1 || *neighbouhr != this) //Test top right
+						outerNeighbouhr++;
+				}else
+					outerNeighbouhr += 3;
+				
+				neighbouhr = thisPx-1;
+				if(i == 0 || *neighbouhr++ != this) //Test left
+					outerNeighbouhr++;
+				if(i == width-1 || *++neighbouhr != this) //Test right
+					outerNeighbouhr++;
+				
+				
+				if(j < height-1){
+					neighbouhr = thisPx+(lnStep-1);
+					if(i == 0 || *neighbouhr++ != this) //Test bottom left
+						outerNeighbouhr++;
+					if(*neighbouhr++ != this) //Test bottom middle
+						outerNeighbouhr++;
+					if(i == width-1 || *neighbouhr != this) //Test bottom right
+						outerNeighbouhr++;
+				}else
+					outerNeighbouhr += 3;
+				
+				if(outerNeighbouhr > 2)
+					perimeter++;
 			}
 			thisPx++;
 			i++;
@@ -390,9 +490,47 @@ int Cluster::detectShape(){
 	u20 /= S;
 	u02 /= S;
 	u11 /= S;
+	u03 /= S;
+	u30 /= S;
+	u12 /= S;
+	u21 /= S;
 	C = 0.5*atan2(2*u11,u20-u02);
+	I2 = (u20/(S*S))-(u02/(S*S));
+	I2 *= I2;
+	n11 = u11/(S*S);
+	I2 += 4.0*n11*n11;
+	Spwr = pow(S,2.5);
+	I3 = (u30/Spwr)-3*(u12*Spwr);
+	I3 *= I3;
+	I3 += (3*(u21/Spwr)-(u21/Spwr))*(3*(u21/Spwr)-(u21/Spwr));
+	metric = (4*M_PI*S)/(perimeter*perimeter);
+	cicularity = (perimeter*perimeter)/(4*M_PI*S);
+	//sequentialMultiply(1,5)
+	//writeConsoleFmt("%08x (%3d,%3d,%3d) %9d %dx%d,%dx%d",lastClus,lastClus->getTone().red,lastClus->getTone().green,lastClus->getTone().blue,
+	//lastClus->getCount(),lastClus->getLeft(),lastClus->getTop(),lastClus->getRight()-lastClus->getLeft(),lastClus->getBottom()-lastClus->getTop());
+	//ID	Color	Count	Tx	Ty	Sx	Sy	ux	uy	u20	u02	u11	Angle	u30	u03	u12	u21	I2	I3	Metric	Circularity	Perimeter
+	writeConsoleFmt("%08x\t(%03d|%03d|%03d)\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.4e\t%.4e\t%.4e\t%.3f\t%.4e\t%.4e\t%.4e\t%.4e\t%.4e\t%.4e\t%.2f\t%.2f\t%d",
+	this,avgTone.red,avgTone.green,avgTone.blue,pixelCount,left,top,right-left,bottom-top,center.x,center.y,u20,u02,u11,(C*180.0)/M_PI,u30,u03,u12,u21,I2,I3,metric,cicularity,perimeter);
+	//writeConsoleFmt("S: %d\tux:%.4f\tuy:%.4f\tu20:%.4f\tu02:%.4f\tu11:%.4f\tC:%.4f;",S,ux,uy,u20,u02,u11,C);
 	
-	writeConsoleFmt("STATISTICS - S: %d; ux:%.4f; uy:%.4f; u20:%.4f; u02:%.4f; u11:%.4f; C:%.4f;",S,ux,uy,u20,u02,u11,C);
+	/*
+	uij = sum x ( sum y ((x-x')^p*(y-y')^q*f(x,y)) )
+		
+	nij = (uij)/(u00^(1+(i+j)/2)
+		
+	https://en.wikipedia.org/wiki/Image_moment#Rotation_invariants
+	I2 = (n20-n02)^2 + 4*n11^2
+		((u20/u00^2)-(u02/u00^2))^2 + 4*(u11/u00^2)^2
+		
+	I3 = (n30-3*n12)^2+(3*n21-n03)^2
+		((u30/u00^2.5)-3*((u12/u00^2.5)))^2+(3*(u21/u00^2.5)-(u03/u00^2.5))^2
+		xvar = x-x'
+		yvar = y-y'
+		u30 = sum x ( sum y (xvar^3*f(x,y)))
+		u12 = sum x ( sum y (xvar*yvar^2*f(x,y)))
+		u21 = sum x ( sum y (xvar^2*yvar*f(x,y)))
+		u03 = sum x ( sum y (yvar^3*f(x,y)))
+	*/
 	
 	/*
 	//Old algorithm.
@@ -603,7 +741,6 @@ void DKHFastScanning(LPIMGDATA imgData){
 	clusImg.width = imgData->width;
 	clusImg.height = imgData->height;
 	clusImg.pixClus = (void**)HeapAlloc(GetProcessHeap(),0,clusImg.width*clusImg.height*sizeof(void*));
-	
 	writeConsole("\nThreshold distance: ");
 	readConsoleString(strThreshold);
 	threshold = atof(strThreshold);
@@ -726,11 +863,11 @@ void DKHFastScanning(LPIMGDATA imgData){
 	seekDiamonds(&clusImg,clusterList);
 	
 	lastClus = clusterList;
-	writeConsole("   ID         RGB        Count   Position,Box\n");
+	//writeConsole("   ID         RGB        Count   Position,Box\n");
 	while(clusterList != (Cluster*)NULL){
 		clusterList = clusterList->getNext();
-		writeConsoleFmt("%08x (%3d,%3d,%3d) %9d %dx%d,%dx%d\n",lastClus,lastClus->getTone().red,lastClus->getTone().green,lastClus->getTone().blue,
-		lastClus->getCount(),lastClus->getLeft(),lastClus->getTop(),lastClus->getRight()-lastClus->getLeft(),lastClus->getBottom()-lastClus->getTop());
+		//writeConsoleFmt("%08x (%3d,%3d,%3d) %9d %dx%d,%dx%d",lastClus,lastClus->getTone().red,lastClus->getTone().green,lastClus->getTone().blue,
+		//lastClus->getCount(),lastClus->getLeft(),lastClus->getTop(),lastClus->getRight()-lastClus->getLeft(),lastClus->getBottom()-lastClus->getTop());
 		lastClus->detectShape();
 		delete lastClus;
 		lastClus = clusterList;

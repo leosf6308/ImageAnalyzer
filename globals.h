@@ -27,6 +27,12 @@ typedef struct _pixel{
 	unsigned char alpha;
 }COLOR, *LPCOLOR;
 #define COLOR_WHITE (COLOR){255,255,255,255}
+
+typedef struct _shortVector{
+	signed short x;
+	signed short y;
+}S_VECT, *PS_VECT;
+
 #pragma pack (pop)
 
 typedef DWORD (*IMGFN) (const char* szFileName, LPIMGDATA imgBuff);

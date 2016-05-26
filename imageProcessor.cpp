@@ -107,12 +107,59 @@ void sobelOperator(LPIMGDATA imgData, bool isGradient){
     GlobalFree(oldBuff);
 }
 
+void sobelOperatorOrientation(LPIMGDATA imgData){
+	int x, y, i, j, sumX, sumY, res;
+	int GX [3][3] = { {-1,0,1}, {-2,0,2}, {-1,0,1} };
+	int GY [3][3] = { {1,2,1}, {0,0,0}, {-1,-2,-1} };
+	/*S_VECT* sVectors = malloc(imgData->width*imgData->height*4);
+	LPCOLOR thisPx = (LPCOLOR)imgData->bitmap;
+	S_VECT* thisVect = sVectors;*/
+	float* vAngles = (float*)malloc(imgData->width*imgData->height*4);
+	LPCOLOR thisPx = (LPCOLOR)imgData->bitmap;
+	float* thisAngle = vAngles;
+	char *strLine = (char*)NULL, *strThis;
+	if(imgData->width <= 16){
+		strLine = (char*)malloc((imgData->width*5+4)&0xFFFFFFFC);
+		strThis = strLine;
+	}
+	
+	for(y = 0; y < imgData->height; y++){
+        for(x = 0; x < imgData->width; x++){
+        	if(x == 0 || y == 0 || x >= imgData->width-1 || y >= imgData->height-1 ){
+                *thisAngle = 0.0f;
+            }else{
+            	sumX = sumY = 0;
+                for(i = -1; i <= 1; i++){
+                    for(j = -1; j <= 1; j++){
+                    	LPCOLOR color = thisPx + (j*imgData->width+i);
+                        sumX += (((color->red+color->green+color->blue)/3) * GX[i+1][j+1]);
+                        sumY += (((color->red+color->green+color->blue)/3) * GY[i+1][j+1]);
+                    }
+                }
+                *thisAngle = (float)atan2(sumX, sumY);
+            }
+            if(strLine != NULL)
+            	strThis += sprintf(strThis,"%.1f ",((*thisAngle)*180)/M_PI);
+            thisPx++;
+            thisAngle++;
+		}
+		if(strLine != NULL){
+			writeConsole(strLine);
+			*strThis++ = '\n';
+			*strThis = '\0';
+			strThis = strLine;
+		}
+		
+	}
+	if(strLine != NULL)
+		free(strLine);
+	free(vAngles);
+}
+
+
 void detectBorder(LPIMGDATA imgData){
 	sobelOperator(imgData,false);
 	writeConsole("Border detection done!\n");
 }
 
-void fastScanning(LPIMGDATA imgData){
-	
-}
 

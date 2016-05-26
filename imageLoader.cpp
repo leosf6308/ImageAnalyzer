@@ -116,10 +116,10 @@ void dumpColorTable(DWORD *colorTable, int colorCount){
 void save24Bit(int width, int height, char *fileData, LPIMGDATA imgData){
 	int i, j, si, step, align;
 	DWORD* dwThisPixel = imgData->bitmap;
-	/*char* dmpData = (char*)HeapAlloc(GetProcessHeap(), 0, (11*width+2)*height+16);
-	char* strThis = dmpData+1;
-	dmpData[0] = '\r';
-	dmpData[1] = '\n';*/
+	//char* dmpData = (char*)HeapAlloc(GetProcessHeap(), 0, (11*width+2)*height+16);
+	//char* strThis = dmpData+1;
+	//dmpData[0] = '\r';
+	//dmpData[1] = '\n';
 	DWORD color;
 	i = j = si = 0;
 	align = ((width*3)&3?4-(width*3)&3:0);
@@ -152,11 +152,11 @@ void save24Bit(int width, int height, char *fileData, LPIMGDATA imgData){
 void save8Bit(int width, int height, DWORD *colorTable, char *fileData, LPIMGDATA imgData){
 	int i, j, si, index, step;
 	int align = (width&3?4-width&3:0);
-	char* dmpData = (char*)HeapAlloc(GetProcessHeap(), 0, (3*width+2)*height+16);
+	//char* dmpData = (char*)HeapAlloc(GetProcessHeap(), 0, (3*width+2)*height+16);
 	DWORD* dwThisPixel = imgData->bitmap;
-	char* strThis = dmpData+1;
-	dmpData[0] = '\r';
-	dmpData[1] = '\n';
+	//char* strThis = dmpData+1;
+	//dmpData[0] = '\r';
+	//dmpData[1] = '\n';
 	si = j = 0;
 	if(height < 0)
 		step = width + align;
@@ -170,33 +170,33 @@ void save8Bit(int width, int height, DWORD *colorTable, char *fileData, LPIMGDAT
 		while(i < width){
 			
 			index = (((int)fileData[si])&0xFF);
-			strThis += sprintf(strThis, "%02X ",index);
+			//strThis += sprintf(strThis, "%02X ",index);
 			
 			*(dwThisPixel++) = colorTable[index];
 			si++;
 			i++;
 		}
-		*strThis++ = '\r';
-		*strThis++ = '\n';
+		//*strThis++ = '\r';
+		//*strThis++ = '\n';
 		si += step;
 			
 		j++;
 	}
-	*strThis++ = '\0';
-	writeConsole(dmpData);
-	HeapFree(GetProcessHeap(),0,dmpData);
+	//*strThis++ = '\0';
+	//writeConsole(dmpData);
+	//HeapFree(GetProcessHeap(),0,dmpData);
 }
 
 void save4Bit(int width, int height, DWORD *colorTable, char *fileData, LPIMGDATA imgData){
 	char codes[] = "0123456789ABCDEF";
 	int i, j, si, index1, index2, step;
 	int align = ((width>>1)&3?4-(width>>1)&3:0);
-	char* dmpData = (char*)HeapAlloc(GetProcessHeap(), 0, (2*width+2)*height+16);
+	//char* dmpData = (char*)HeapAlloc(GetProcessHeap(), 0, (2*width+2)*height+16);
 	//DWORD* dwThisPixel = (height>0?imgData->bitmap+width*(height-1):imgData->bitmap);
 	DWORD* dwThisPixel = imgData->bitmap;
-	char* strThis = dmpData+1;
-	dmpData[0] = '\r';
-	dmpData[1] = '\n';
+	//char* strThis = dmpData+1;
+	//dmpData[0] = '\r';
+	//dmpData[1] = '\n';
 	si = j = 0;
 	if(height < 0)
 		step = (width>>1) + align;
@@ -213,10 +213,10 @@ void save4Bit(int width, int height, DWORD *colorTable, char *fileData, LPIMGDAT
 			index1 = (((int)fileData[si])&0xF0)>>4;
 			index2 = (((int)fileData[si])&0x0F);
 			
-			*strThis++ = codes[index1];
-			*strThis++ = ' ';
-			*strThis++ = codes[index2];
-			*strThis++ = ' ';
+			//*strThis++ = codes[index1];
+			//*strThis++ = ' ';
+			//*strThis++ = codes[index2];
+			//*strThis++ = ' ';
 			
 			*(dwThisPixel++) = colorTable[index1];
 			*(dwThisPixel++) = colorTable[index2];
@@ -224,15 +224,15 @@ void save4Bit(int width, int height, DWORD *colorTable, char *fileData, LPIMGDAT
 			si++;
 			i += 2;
 		}
-		*strThis++ = '\r';
-		*strThis++ = '\n';
+		//*strThis++ = '\r';
+		//*strThis++ = '\n';
 		si += step;
 		//dwThisPixel -= height*2;
 		j++;
 	}
-	*strThis++ = '\0';
-	writeConsole(dmpData);
-	HeapFree(GetProcessHeap(),0,dmpData);
+	//*strThis++ = '\0';
+	//writeConsole(dmpData);
+	//HeapFree(GetProcessHeap(),0,dmpData);
 }
 
 LPIMGDATA loadBitmap(const char* szFileName){
