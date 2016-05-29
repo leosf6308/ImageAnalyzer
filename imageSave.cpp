@@ -14,13 +14,16 @@ int saveImage(const char* szFileName, LPIMGDATA imgData){
 	hFile = CreateFile(szFileName, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL,NULL);
 	if(hFile == INVALID_HANDLE_VALUE)
 		return GetLastError();
-	
+	/*
+	if(imgData->width&3)
+		imgData->width += 4-(imgData->width&3);
+	*/
 	dwLineSz = imgData->width*3;
 	if(dwLineSz&3)
-		dwLineSz += 4-(imgData->height&3);
+		dwLineSz += 4-(dwLineSz&3);
 	
 	dwFileSize = 54+dwLineSz*imgData->height;
-	fileData = (char*)HeapAlloc(GetProcessHeap(), 0, dwFileSize);
+	fileData = (char*)HeapAlloc(GetProcessHeap(), HEAP_GENERATE_EXCEPTIONS | HEAP_ZERO_MEMORY, dwFileSize);
 	
 	bmpHead = (LPBITMAPFILEHEADER)fileData;
 	bmpHead->bfType = 0x4D42;

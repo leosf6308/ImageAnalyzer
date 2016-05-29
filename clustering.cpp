@@ -7,6 +7,7 @@
 #define GEOM_TRIANGLE 4
 
 #define MINDOUBLE 0.0000000001
+#define ANGLE_THRESHOLD 5.0
 
 typedef struct _allocationData{
 	HANDLE hHeap;
@@ -84,6 +85,7 @@ typedef struct _pixelCount{
 	int distance;
 }PIXCNT, *LPPIXCNT;
 
+int saveImage(const char* szFileName, LPIMGDATA imgData);
 /*
 C    = n!/(p!*(n-p)!)
  n,p
@@ -397,9 +399,9 @@ void Cluster::mergeClosest(Cluster* head){
 int Cluster::detectShape(){
 	//Returns probable geometric shape (square, triangle, circle) of the object.
 	//http://homepages.inf.ed.ac.uk/rbf/CVonline/LOCAL_COPIES/MORSE/region-props-and-moments.pdf Section 9.8.2
-	int i, j, S, lnStep, width, height, ptIdx, perimeter;
-	double ux, uy, u20, u02, u11, u30, u03, u12, u21, C, metric, cicularity;
-	double n20, n02, n11, n30, n03, n12, n21, I2, I3, Spwr;
+	char sType[16];
+	int i, j, S, lnStep, width, height;
+	double ux, uy, u20, u02, u11, C, ratio, angleAbs;
 	Cluster** thisPx = ((Cluster**)clustImage->pixClus)+(top*clustImage->width+left);
 	POINT2D center;
 	
@@ -407,7 +409,6 @@ int Cluster::detectShape(){
 	height = bottom-top;
 	lnStep = clustImage->width-width;
 	uy = ux = 0.0;
-	perimeter = 0;
 	j = 0;
 	S = 0;
 	//j = y; x = i; S = cluster pixel count; f(x,y) returns 1 for pixels who belong to the cluster.
@@ -430,56 +431,18 @@ int Cluster::detectShape(){
 	center.x = (int)ux;
 	center.y = (int)uy;
 	thisPx = ((Cluster**)clustImage->pixClus)+(top*clustImage->width+left);
-	u20 = u02 = u11 = u30 = u03 = u12 = u21 = 0.0;
+	u20 = u02 = u11 = 0.0;
 	j = 0;
 	while(j < height){
 		i = 0;
 		while(i < width){
 			if(*thisPx == this){
-				int xvar, yvar, outerNeighbouhr;
-				Cluster** neighbouhr;
+				int xvar, yvar;
 				xvar = i - center.x;
 				yvar = j - center.y;
 				u20 += (xvar*xvar);
 				u02 += (yvar*yvar);
 				u11 += (xvar*yvar);
-				u30 += (xvar*xvar*xvar);
-				u03 += (yvar*yvar*yvar);
-				u12 += (xvar*yvar*yvar);
-				u21 += (xvar*xvar*yvar);
-				
-				outerNeighbouhr = 0;
-				if(j != 0){
-					neighbouhr = thisPx-(lnStep+1);
-					if(i == 0 || *neighbouhr++ != this) //Test top left
-						outerNeighbouhr++;
-					if(*neighbouhr++ != this) //Test top middle
-						outerNeighbouhr++;
-					if(i == width-1 || *neighbouhr != this) //Test top right
-						outerNeighbouhr++;
-				}else
-					outerNeighbouhr += 3;
-				
-				neighbouhr = thisPx-1;
-				if(i == 0 || *neighbouhr++ != this) //Test left
-					outerNeighbouhr++;
-				if(i == width-1 || *++neighbouhr != this) //Test right
-					outerNeighbouhr++;
-				
-				
-				if(j < height-1){
-					neighbouhr = thisPx+(lnStep-1);
-					if(i == 0 || *neighbouhr++ != this) //Test bottom left
-						outerNeighbouhr++;
-					if(*neighbouhr++ != this) //Test bottom middle
-						outerNeighbouhr++;
-					if(i == width-1 || *neighbouhr != this) //Test bottom right
-						outerNeighbouhr++;
-				}else
-					outerNeighbouhr += 3;
-				
-				if(outerNeighbouhr > 2)
-					perimeter++;
 			}
 			thisPx++;
 			i++;
@@ -490,118 +453,154 @@ int Cluster::detectShape(){
 	u20 /= S;
 	u02 /= S;
 	u11 /= S;
-	u03 /= S;
-	u30 /= S;
-	u12 /= S;
-	u21 /= S;
 	C = 0.5*atan2(2*u11,u20-u02);
-	I2 = (u20/(S*S))-(u02/(S*S));
-	I2 *= I2;
-	n11 = u11/(S*S);
-	I2 += 4.0*n11*n11;
-	Spwr = pow(S,2.5);
-	I3 = (u30/Spwr)-3*(u12*Spwr);
-	I3 *= I3;
-	I3 += (3*(u21/Spwr)-(u21/Spwr))*(3*(u21/Spwr)-(u21/Spwr));
-	metric = (4*M_PI*S)/(perimeter*perimeter);
-	cicularity = (perimeter*perimeter)/(4*M_PI*S);
-	//sequentialMultiply(1,5)
-	//writeConsoleFmt("%08x (%3d,%3d,%3d) %9d %dx%d,%dx%d",lastClus,lastClus->getTone().red,lastClus->getTone().green,lastClus->getTone().blue,
-	//lastClus->getCount(),lastClus->getLeft(),lastClus->getTop(),lastClus->getRight()-lastClus->getLeft(),lastClus->getBottom()-lastClus->getTop());
-	//ID	Color	Count	Tx	Ty	Sx	Sy	ux	uy	u20	u02	u11	Angle	u30	u03	u12	u21	I2	I3	Metric	Circularity	Perimeter
-	writeConsoleFmt("%08x\t(%03d|%03d|%03d)\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.4e\t%.4e\t%.4e\t%.3f\t%.4e\t%.4e\t%.4e\t%.4e\t%.4e\t%.4e\t%.2f\t%.2f\t%d",
-	this,avgTone.red,avgTone.green,avgTone.blue,pixelCount,left,top,right-left,bottom-top,center.x,center.y,u20,u02,u11,(C*180.0)/M_PI,u30,u03,u12,u21,I2,I3,metric,cicularity,perimeter);
-	//writeConsoleFmt("S: %d\tux:%.4f\tuy:%.4f\tu20:%.4f\tu02:%.4f\tu11:%.4f\tC:%.4f;",S,ux,uy,u20,u02,u11,C);
 	
-	/*
-	uij = sum x ( sum y ((x-x')^p*(y-y')^q*f(x,y)) )
-		
-	nij = (uij)/(u00^(1+(i+j)/2)
-		
-	https://en.wikipedia.org/wiki/Image_moment#Rotation_invariants
-	I2 = (n20-n02)^2 + 4*n11^2
-		((u20/u00^2)-(u02/u00^2))^2 + 4*(u11/u00^2)^2
-		
-	I3 = (n30-3*n12)^2+(3*n21-n03)^2
-		((u30/u00^2.5)-3*((u12/u00^2.5)))^2+(3*(u21/u00^2.5)-(u03/u00^2.5))^2
-		xvar = x-x'
-		yvar = y-y'
-		u30 = sum x ( sum y (xvar^3*f(x,y)))
-		u12 = sum x ( sum y (xvar*yvar^2*f(x,y)))
-		u21 = sum x ( sum y (xvar^2*yvar*f(x,y)))
-		u03 = sum x ( sum y (yvar^3*f(x,y)))
-	*/
-	
-	/*
-	//Old algorithm.
-	int i, j, step, size, width, height, p;
-	double u20, u02, u11, vx, vy, angle, num, den;
-	Cluster** thisPx = ((Cluster**)clustImage->pixClus)+(top*clustImage->width+left);
-	POINT2D *point, center;
-	width = right-left;
-	height = bottom-top;
-	step = clustImage->width-width;
-	point = (POINT2D*)malloc(sizeof(POINT2D)*pixelCount);
-	p = 0;
-	center.x = 0;
-	center.y = 0;
-	i = 0;
-	while(i < height){
+	//Is it inside ranges 0, 90 or 180?
+	angleAbs = fabs(C);
+	if(angleAbs < (ANGLE_THRESHOLD*M_PI)/180.0 ||
+		(angleAbs-(M_PI/4) < (ANGLE_THRESHOLD*M_PI)/180.0 && angleAbs-(M_PI/4) > -((ANGLE_THRESHOLD*M_PI)/180.0)) ||
+		(angleAbs-(M_PI/2) < (ANGLE_THRESHOLD*M_PI)/180.0 && angleAbs-(M_PI/2) > -((ANGLE_THRESHOLD*M_PI)/180.0))){
+		//Nice, no rotation is required
+		ratio = ((double)pixelCount)/(width*height);
+	}else{
+		//We need to rotate that SHIT!
+		POINT2D point[4]; //1: top right, 2: bottom left, 3: bottom right
+		POINT2D rCenter;
+		int rWidth, rHeight, x, y, xMax, yMax;
+		unsigned int *pixels, *current;
+		char *strLine, *strCurrent;
+		double sine, cossine, newx, newy;
+		sine = sin(-C);
+		cossine = cos(-C);
+		point[0] = (POINT2D){-(width/2),-(height/2)};
+		point[1] = (POINT2D){width/2,-(height/2)};
+		point[2] = (POINT2D){-(width/2),height/2};
+		point[3] = (POINT2D){width/2,height/2};
+		xMax = yMax = 0; //It's the maximum point
+		x = -width;
+		y = -height;
+		for(i = 0; i < 4; i++){
+			newx = point[i].x*cossine-point[i].y*sine;
+			newy = point[i].x*sine+point[i].y*cossine;
+			//writeConsoleFmt("Corner %dx%d -> %dx%d\n",point[i].x,point[i].y,(int)round(newx),(int)round(newy));
+			point[i].x = (int)round(newx);
+			point[i].y = (int)round(newy);
+			if(point[i].x < x)
+				x = point[i].x;
+			if(point[i].y < y)
+				y = point[i].y;
+			if(point[i].x > xMax)
+				xMax = point[i].x;
+			if(point[i].y > yMax)
+				yMax = point[i].y;
+		}
+		rWidth = (xMax-x)+1;
+		rHeight = (yMax-y)+1;
+		rCenter.x = rWidth/2;
+		rCenter.y = rHeight/2;
+		pixels = (unsigned int*)malloc(rWidth*rHeight*sizeof(int));
+		memset(pixels,0,rWidth*rHeight*sizeof(int));
+		//writeConsoleFmt("Memory block: %dBytes (%dx%d matrix). Rotate %.2f degreees.",rWidth*rHeight,rWidth,rHeight,(C*180.0)/M_PI);
+		thisPx = ((Cluster**)clustImage->pixClus)+(top*clustImage->width+left);
 		j = 0;
-		while(j < width){
-			if(*thisPx == this){
-				point[p].x = j;
-				point[p].y = i;
-				p++;
-				center.x += j;
-				center.y += i;
+		while(j < height){
+			i = 0;
+			while(i < width){
+				if(*thisPx == this){
+					//https://en.wikipedia.org/wiki/Rotation_matrix
+					if(C > 0.0){ //Is angle clockwise?
+						//Rotate Counterclockwise
+						newx = (i-center.x)*cossine+(j-center.y)*sine;
+						newy = -1*(i-center.x)*sine+(j-center.y)*cossine;
+					}else{				
+						//Rotate Clockwise
+						newx = (i-center.x)*cossine-(j-center.y)*sine;
+						newy = (i-center.x)*sine+(j-center.y)*cossine;
+					}
+					newx += rCenter.x;
+					newy += rCenter.y;
+					x = (int)floor(newx);
+					y = (int)floor(newy);
+					if(x < 0 || x+1 > rWidth || y < 0 || y+1 > rHeight)
+						writeConsoleFmt("Can't plot %d (pt%dx%d r%.2fx%.2f %.2f,%.2f)\n",y*rWidth+x,i,j,newx+rCenter.x,newy+rCenter.y,newx-x,newy-y);
+					else{
+						pixels[y*rWidth+x] = 0xFFFFFFFF;
+						if(x+1 < rWidth && newx-x > 0.2){
+							pixels[y*rWidth+x+1] = 0xFFFFFFFF;
+							if(y+1 < rHeight && newy-y > 0.2)
+								pixels[(y+1)*rWidth+x+1] = 0xFFFFFFFF;
+						}
+						if(y+1 < rHeight && newy-y > 0.2)
+							pixels[(y+1)*rWidth+x] = 0xFFFFFFFF;
+					}
+				}
+				thisPx++;
+				i++;
 			}
-			thisPx++;
+			thisPx += lnStep;
 			j++;
 		}
-		thisPx += step;
-		i++;
+		x = rWidth;
+		y = rHeight;
+		xMax = 0;
+		yMax = 0;
+		current = pixels;
+		j = 0;
+		S = 0;
+		while(j < rHeight){
+			i = 0;
+			while(i < rWidth){
+				if(*current == 0xFFFFFFFF){
+					if(i < x)
+						x = i;
+					if(j < y)
+						y = j;
+					if(i > xMax)
+						xMax = i;
+					if(j > yMax)
+						yMax = j;
+					S++;
+				}
+				current++;
+				i++;
+			}
+			j++;
+		}
+		/*
+		IMGDATA region;
+		region.width = rWidth;
+		region.height = rHeight;
+		region.bitmap = (DWORD*)pixels;
+		pixels[y*rWidth+x] = 0xFF0000FF;
+		pixels[y*rWidth+xMax] = 0xFF0000FF;
+		pixels[yMax*rWidth+x] = 0xFF0000FF;
+		pixels[yMax*rWidth+xMax] = 0xFF0000FF;
+		strLine = (char*)malloc(128);
+		sprintf(strLine,"C:\\temp\\region%dx%d.bmp",rWidth,rHeight);
+		saveImage(strLine, &region);
+		free(strLine);
+		*/
+		free(pixels);
+		rWidth = (xMax-x);
+		rHeight = (yMax-y);
+		ratio = ((double)S)/(rWidth*rHeight);
 	}
-	center.x /= p;
-	center.y /= p;
 	
-	//u20: x variance; u02: y variance; u11: xy covariance;
-	u20 = u02 = u11 = 0.0;
-	
-	//f(x,y) = 1, because every pixel has the same weight
-	//Also copied from MATLAB regionprops->ComputeEllipseParams
-	for(p = 0; p < pixelCount; p++){
-		vx = point[p].x-center.x;
-		vy = -(point[p].y-center.y);
-		u20 += pow(vx,2);
-		u02 += pow(vy,2);
-		u11 += (vx*vy);
-	}
-	
-	u20 /= p;
-	u02 /= p;
-	u11 /= p;
-	
-	if(u02 > u20){
-		num = u02 - u20 + sqrt(pow(u02-u20,2)+4.0*pow(u11,2));
-		den = 2.0*u11;
-	}else{
-		num = 2.0*u11;
-		den = u02 - u20 + sqrt(pow(u02-u20,2)+4.0*pow(u11,2));
-	}
-	
-	//num = 2*u11;
-	//den = u20-u02;
-	if(abs(num)<MINDOUBLE ||abs(num)<MINDOUBLE)
-		angle = 0.0;
+	if(fabs(ratio-1) < 0.05)
+		strcpy(sType,"SQUARE");
+	else if(fabs(ratio-0.78) < 0.02)
+		strcpy(sType,"CIRCLE");
+	else if(ratio < 0.5 && ratio > 0.25 )
+		strcpy(sType,"TRIANGLE");
 	else
-		angle = (180.0/M_PI)*atan(num/den);
-	
-	writeConsoleFmt("Mean point: %dx%d. Angle: %.3f\n",center.x+left,center.y+top,angle);
-	free(point);*/
+		strcpy(sType,"UNKNOWN");
+	//ID	Color	Count	Tx	Ty	Sx	Sy	ux	uy	u20	u02	u11	Angle ratio
+	writeConsoleFmt("%08x\t(%03d|%03d|%03d)\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.4e\t%.4e\t%.4e\t%.3f\t%.3f\t%s\n",
+	this,avgTone.red,avgTone.green,avgTone.blue,pixelCount,left,top,right-left,bottom-top,center.x,center.y,
+	u20,u02,u11,(C*180.0)/M_PI,ratio,sType); //Radians to Degrees: http://www.mathinary.com/degrees_radians.jsp
 }
 
-Cluster* getPixelCluster(Cluster* clus, LPCLUSIMG clusImg,  int x, int y){
+Cluster* getPixelCluster(Cluster* clus, LPCLUSIMG clusImg, int x, int y){
 	if(x < 0 || x >= clusImg->width || y < 0 || y >= clusImg->height || clus == (Cluster*)NULL){
 		writeConsoleFmt("Invalid parameters to find (%d,%d) pixel's cluster.\n",x,y);
 		return (Cluster*)NULL;
@@ -821,37 +820,34 @@ void DKHFastScanning(LPIMGDATA imgData){
 		//dbgShow(clusterList,&clusImg);
 	}
 	
-	/*maxSize = clusImg.width+clusImg.height*sizeof(PIXCNT);
-	delLists.hHeap = HeapCreate(0,128*sizeof(PIXCNT), maxSize*sizeof(PIXCNT));
-	delLists.allocPtr = NULL;
-	delLists.allocSize = 0;*/
-	
 	j = 0;
 	//Remove small clusters (less than 1%)
 	writeConsoleFmt("Wich it's the minimum cluster size(size threshold in percent)?");
 	readConsoleString(strThreshold);
 	threshold = atof(strThreshold)/100.0f;
 	if(threshold > 0.1f){
-		writeConsole("Too big. You should had inserted values lower than 10.0");
+		writeConsole("Too big. You should had inserted values lower than 10.0\n");
 		threshold = 0.01f;
 	}else if(threshold < 0.0001f){
-		writeConsole("Too small. You should had inserted values greater than 0.01");
+		writeConsole("Too small. You should had inserted values greater than 0.01\n");
 		threshold = 0.01f;
 	}
-	writeConsoleFmt("Minimal cluster size to image ratio: %.4f%%",threshold*100.0f);
-	i = (int)((clusImg.width*clusImg.height)*threshold);
-	i = (clusImg.width*clusImg.height)/400; //Get how much is 1%
+	writeConsoleFmt("Minimal cluster size to image ratio: %.4f%%\n",threshold*100.0f);
+	maxSize = (int)((clusImg.width*clusImg.height)*threshold);
+	maxSize = (clusImg.width*clusImg.height)/400; //Get how much is 1%
 	Ci = clusterList->getNext();
+	i = 0;
 	while(Ci != (Cluster*)NULL){
-		if(Ci->getCount() < i){
+		if(Ci->getCount() < maxSize){
 			Cluster* delClus = Ci;
 			j++;
 			writeConsoleFmt("Merging cluster %08x because of low pixel count: %d. Clusters deleted: %d\n",Ci,Ci->getCount(),j);
 			Ci = Ci->getNext();
 			clusterCount--;
-			//delClus->mergeClosest(clusterList,delLists.hHeap);
 			delClus->mergeClosest(clusterList);
 			continue;
+		}else if(Ci->getCount() > i){
+			i = Ci->getCount();
 		}
 		Ci = Ci->getNext();
 	}
@@ -860,7 +856,7 @@ void DKHFastScanning(LPIMGDATA imgData){
 	
 	writeConsoleFmt("%d clusters found.\n",clusterCount);
 	
-	seekDiamonds(&clusImg,clusterList);
+	//seekDiamonds(&clusImg,clusterList);
 	
 	lastClus = clusterList;
 	//writeConsole("   ID         RGB        Count   Position,Box\n");
